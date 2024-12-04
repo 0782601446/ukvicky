@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Next-Gen Big Data Analysis Tool</title>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #fff;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .file-input,
+        .sheet-selector,
+        .plot-options,
+        .results {
+            margin: 20px 0;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        input[type="file"],
+        select,
+        button {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px;
+            margin: 10px auto;
+            border-radius: 10px;
+            border: none;
+            font-size: 1rem;
+            text-align: center;
+            display: block;
+        }
+
+        button {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #2575fc, #6a11cb);
+            transform: scale(1.05);
+        }
+
+        canvas {
+            margin: 20px auto;
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .access-link {
+            margin-top: 30px;
+            padding: 10px 20px;
+            background-color: #2575fc;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1.2rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .access-link:hover {
+            background-color: #6a11cb;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <button>Home</button>
+        <button>Upload</button>
+        <button>Analysis</button>
+        <button>Settings</button>
+    </div>
+    <div class="container">
+        <h1>Next-Gen Big Data Analysis Tool</h1>
+        <div class="file-input">
+            <label for="file-upload">Upload a CSV or Excel File:</label>
+            <input type="file" id="file-upload" accept=".csv,.xlsx,.xls">
+        </div>
+        <div id="sheet-selector" class="sheet-selector hidden">
+            <label for="sheets">Select a Sheet:</label>
+            <select id="sheets"></select>
+        </div>
+        <div id="plot-options" class="plot-options hidden">
+            <label for="columns">Select Column(s):</label>
+            <select id="columns" multiple></select>
+            <label for="plot-type">Select Plot Type:</label>
+            <select id="plot-type">
+                <option value="line">Line Plot</option>
+                <option value="scatter">Scatter Plot</option>
+                <option value="histogram">Histogram</option>
+                <option value="pie">Pie Chart</option>
+                <option value="bar">Bar Chart</option>
+                <option value="skewness">Skewness Plot</option>
+                <option value="kurtosis">Kurtosis Plot</option>
+            </select>
+            <button id="analyze-btn">Analyze</button>
+        </div>
+        <div id="results" class="results hidden">
+            <h2>Descriptive Statistics</h2>
+            <ul id="stats-list"></ul>
+            <h2>Plot</h2>
+            <canvas id="plot" width="800" height="400"></canvas>
+        </div>
+
+        <a href="https://0782601446.github.io/vcky/" class="access-link" target="_blank">Access Big Data Analysis Tool</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+        // Load data from the CSV or Excel file
+        let fileData = null;
+
+        document.getElementById('file-upload').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const data = e.target.result;
+                    if (file.name.endsWith('.csv')) {
+                        parseCSV(data);
+                    } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                        parseExcel(data);
+                    }
+                };
+                reader.readAsBinaryString(file);
+            }
+        });
+
+        function parseCSV(data) {
+            const rows = data.split('\n').map(row => row.split(','));
+            const columns = rows[0];
+            loadSheetOptions(columns);
+        }
+
+        function parseExcel(data) {
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetNames = workbook.SheetNames;
+            const sheet = workbook.Sheets[sheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(sheet);
+            const columns = Object.keys(jsonData[0]);
+            loadSheetOptions(columns);
+        }
+
+        function loadSheetOptions(columns) {
+            const select = document.getElementById('columns');
+            columns.forEach(col => {
+                const option = document.createElement('option');
+                option.value = col;
+                option.text = col;
+                select.appendChild(option);
+            });
+            document.getElementById('plot-options').classList.remove('hidden');
+        }
+
+        document.getElementById('analyze-btn').addEventListener('click', () => {
+            const selectedColumns = Array.from(document.getElementById('columns').selectedOptions).map(opt => opt.value);
+            const plotType = document.getElementById('plot-type').value;
+            analyzeData(selectedColumns, plotType);
+        });
+
+        function analyzeData(columns, plotType) {
+            const dataForPlot = columns.map(col => {
+                return {
+                    label: col,
+                    data: fileData.map(row => row[col]),
+                    backgroundColor: getRandomColor(),
+                    borderColor: getRandomColor(),
+                    borderWidth: 1
+                };
+            });
+
+            const ctx = document.getElementById('plot').getContext('2d');
+            let chart = null;
+
+            // Pie Chart
+            if (plotType === 'pie') {
+                const pieData = columns.map(col => {
+                    return {
+                        label: col,
+                        data: fileData.map(row => row[col]).reduce((a, b) => a + b, 0)
+                    };
+                });
+                chart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: pieData.map(d => d.label),
+                        datasets: [{
+                            data: pieData.map(d => d.data),
+                            backgroundColor: dataForPlot.map(d => d.backgroundColor)
+                        }]
+                    }
+                });
+            }
+            // Bar Chart
+            else if (plotType === 'bar') {
+                chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: columns,
+                        datasets: dataForPlot
+                    }
+                });
+            }
+            // Handle other plot types (line, scatter, histogram)
+            else {
+                // Your existing code for other plot types can go here
+            }
+        }
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+    </script>
+</body>
+</html>
